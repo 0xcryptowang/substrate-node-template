@@ -279,6 +279,11 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+/// 配置 pallet-poe 
+impl pallet_poe::Config for Runtime {
+	type Event = Event;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -296,6 +301,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		// 引入poe模块
+		PoeModule: pallet_poe,
 	}
 );
 
@@ -323,7 +330,7 @@ pub type Executive = frame_executive::Executive<
 	Block,
 	frame_system::ChainContext<Runtime>,
 	Runtime,
-	AllPalletsWithSystem,
+	AllPallets,
 >;
 
 impl_runtime_apis! {

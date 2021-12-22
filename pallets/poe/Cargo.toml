@@ -1,23 +1,37 @@
+# 基本配置
 [package]
-name = 'pallet-template'
-version = '4.0.0-dev'
-description = 'FRAME pallet template for defining custom runtime logic.'
+# 包名
+name = 'pallet-poe'
+# 版本号
+version = '0.0.1-dev'
+# 描述
+description = 'FRAME pallet poe'
+# 作者
 authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+# 主页
 homepage = 'https://substrate.io/'
+# rust编译版本
 edition = '2021'
+# 许可协议
 license = 'Unlicense'
+# 发布状态
 publish = false
+# 代码仓库
 repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
 
+
+# 指定生成文档的适用平台
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
+# 编码解码相关类库
 [dependencies.codec]
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
 version = '2.0.0'
 
+# Runtime基准测试框架
 [dependencies.frame-benchmarking]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -25,41 +39,59 @@ optional = true
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+# Runtime 使用到的宏
 [dependencies.frame-support]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+# Runtime 所依赖的基础模块(提供核心类型及基本功能组件)
 [dependencies.frame-system]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+# Runtime 依赖的std类库
+[dependencies.sp-std]
+ddefault-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'devhub/latest'
+version = '4.0.0-dev'
+
+# Runtime有关SCALE 可编码类型结构信息类库
 [dependencies.scale-info]
 default-features = false
 features = ['derive']
 version = '1.0'
 
+
+
+# 测试环境依赖的核心组件类库
 [dev-dependencies.sp-core]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+
+
+# 测试环境依赖的IO操作类库
 [dev-dependencies.sp-io]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+# 测试环境依赖的runtime类库
 [dev-dependencies.sp-runtime]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+# features 做条件编译(默认 std 模式)
 [features]
 default = ['std']
 runtime-benchmarks = ['frame-benchmarking']
