@@ -55,7 +55,7 @@ version = '4.0.0-dev'
 
 # Runtime 依赖的std类库
 [dependencies.sp-std]
-ddefault-features = false
+default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
