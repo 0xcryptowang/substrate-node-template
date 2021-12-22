@@ -24,6 +24,7 @@ pub mod pallet {
 
 	/// 定义一个event枚举类型
     #[pallet::event]
+    /// #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config>{
         ClaimCreated(T::AccountId, Vec<u8>),
