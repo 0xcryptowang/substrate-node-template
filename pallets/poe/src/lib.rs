@@ -2,6 +2,12 @@
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
@@ -58,6 +64,7 @@ pub mod pallet {
             Self::deposit_event(Event::ClaimCreated(sender, claim));
             Ok(().into())
         }
+        
 
         // 吊销存证
         #[pallet::weight(0)]
