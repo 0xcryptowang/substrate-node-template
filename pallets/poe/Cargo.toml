@@ -19,7 +19,6 @@ publish = false
 # 代码仓库
 repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
 
-
 # 指定生成文档的适用平台
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -53,20 +52,18 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
-# Runtime 依赖的std类库
-[dependencies.sp-std]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'devhub/latest'
-version = '4.0.0-dev'
-
 # Runtime有关SCALE 可编码类型结构信息类库
 [dependencies.scale-info]
 default-features = false
 features = ['derive']
 version = '1.0'
 
-
+# Runtime 依赖的std类库
+[dependencies.sp-std]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'monthly-2021-11-1'  # or the latest monthly
+version = '4.0.0-dev'      # or the latest version
 
 # 测试环境依赖的核心组件类库
 [dev-dependencies.sp-core]
@@ -74,8 +71,6 @@ default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
-
-
 
 # 测试环境依赖的IO操作类库
 [dev-dependencies.sp-io]
@@ -101,5 +96,6 @@ std = [
     'frame-support/std',
     'frame-system/std',
     'frame-benchmarking/std',
+    'sp-std/std',
 ]
 try-runtime = ['frame-support/try-runtime']
