@@ -28,6 +28,11 @@ default-features = false
 path = '../pallets/poe'
 version = '0.0.1-dev'
 
+[dependencies.pallet-kitties]
+default-features = false
+path = '../pallets/kitties'
+version = '0.0.1-dev'
+
 [build-dependencies.substrate-wasm-builder]
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'

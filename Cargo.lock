@@ -3536,6 +3536,7 @@ dependencies = [
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
+ "pallet-kitties",
  "pallet-nicks",
  "pallet-poe",
  "pallet-randomness-collective-flip",
@@ -3785,6 +3786,21 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
+ "sp-std 4.0.0-dev (git+https://github.com/paritytech/substrate.git?tag=devhub/latest)",
+]
+
+[[package]]
+name = "pallet-kitties"
+version = "0.0.1-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std 4.0.0-dev (git+https://github.com/paritytech/substrate.git?tag=devhub/latest)",
 ]
 
