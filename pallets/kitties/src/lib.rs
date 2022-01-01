@@ -10,6 +10,8 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use codec::{Encode, Decode};
     use sp_io::hashing::blake2_128;
+   
+    
 
     	// 定义配置
 	#[pallet::config] 
@@ -33,6 +35,7 @@ pub mod pallet {
 	#[pallet::error] 
 	pub enum Error<T> {
         KittiesCountOverflow,
+        AlreadyOwner,
         NotOwner,
         SameParentIndex,
         InvalidKittyIndex
@@ -143,6 +146,45 @@ pub mod pallet {
            
             Ok(())
         }
+
+        #[pallet::weight(0)]
+        pub fn buy(origin: OriginFor<T>, kitty_id:KittyIndex) -> DispatchResult{
+            
+            // 检查kitty是否存在
+            let _kitty = Self::kitties(kitty_id).ok_or(Error::<T>::InvalidKittyIndex)?;
+            
+            // 检查kitty是否不是自己所有，防止自己买自己的
+            let who = ensure_signed(origin)?;
+            let owner = Owner::<T>::get(kitty_id);
+            ensure!(Some(who.clone())!= owner, Error::<T>::AlreadyOwner);
+
+            // 修改kitty拥有者
+            Owner::<T>::insert(kitty_id, Some(who.clone()));
+
+            Self::deposit_event(Event::KittyTransfer(owner.unwrap(), who, kitty_id));
+
+            Ok(())
+        }
+
+
+        #[pallet::weight(0)]
+        pub fn sell(origin: OriginFor<T>, new_owner:T::AccountId, kitty_id:KittyIndex) -> DispatchResult{
+            // 检查kitty是否存在
+            let _kitty = Self::kitties(kitty_id).ok_or(Error::<T>::InvalidKittyIndex)?;
+
+             // 检查是否有kitty所有权
+             let who = ensure_signed(origin)?;
+             let owner = Owner::<T>::get(kitty_id);
+             ensure!(Some(who.clone())== owner, Error::<T>::NotOwner);
+
+             // 修改kitty拥有者
+            Owner::<T>::insert(kitty_id, Some(new_owner.clone()));
+
+            Self::deposit_event(Event::KittyTransfer(who, new_owner, kitty_id));
+
+            Ok(())
+        }
+
     }
 
     impl<T: Config> Pallet<T> {

@@ -46,6 +46,7 @@ pub use pallet_template;
 
 pub use pallet_kitties;
 
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -64,6 +65,8 @@ pub type Index = u32;
 
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
+
+
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -322,10 +325,12 @@ impl pallet_poe::Config for Runtime {
 	type AssetDepositBase = AssetDepositBase;
 }
 
+
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
 }
+
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
