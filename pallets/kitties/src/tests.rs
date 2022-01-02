@@ -7,8 +7,8 @@ fn test_create() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		assert_eq!(KittiesCount::<Test>::get(), Some(1));
-		assert_eq!(Owner::<Test>::get(0), Some(1));
-		System::assert_has_event(MockEvent::KittiesModule(Event::Created(1, 0)));
+		assert_eq!(Owner::<Test>::get(1), Some(1));
+		System::assert_has_event(MockEvent::KittiesModule(Event::Created(1, 1)));
 	});
 }
 
@@ -16,9 +16,9 @@ fn test_create() {
 fn test_transfer() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
-		assert_ok!(KittiesModule::transfer(Origin::signed(1), 2, 0));
-		assert_eq!(Owner::<Test>::get(0), Some(2));
-		System::assert_has_event(MockEvent::KittiesModule(Event::Transferred(1, 2, 0)));
+		assert_ok!(KittiesModule::transfer(Origin::signed(1), 2, 1));
+		assert_eq!(Owner::<Test>::get(1), Some(2));
+		System::assert_has_event(MockEvent::KittiesModule(Event::Transferred(1, 2, 1)));
 	});
 }
 
@@ -27,9 +27,9 @@ fn test_breed() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		assert_ok!(KittiesModule::create(Origin::signed(2)));
-		assert_ok!(KittiesModule::breed(Origin::signed(1), 0, 1));
+		assert_ok!(KittiesModule::breed(Origin::signed(1), 1, 2));
 		assert_eq!(KittiesCount::<Test>::get(), Some(3));
-		System::assert_has_event(MockEvent::KittiesModule(Event::Created(1, 2)));
+		System::assert_has_event(MockEvent::KittiesModule(Event::Created(1, 3)));
 	});
 }
 
@@ -38,21 +38,22 @@ fn test_sell() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		let price: u128 = 2000;
-		assert_ok!(KittiesModule::sell(Origin::signed(1), 0, Some(price)));
-		assert_eq!(ListForSale::<Test>::get(0), Some(price));
-		System::assert_has_event(MockEvent::KittiesModule(Event::OnSell(1, 0, Some(price))));
+		assert_ok!(KittiesModule::sale(Origin::signed(1), 1, Some(price)));
+		assert_eq!(ListForSale::<Test>::get(1), Some(price));
+		System::assert_has_event(MockEvent::KittiesModule(Event::OnSales(1, 1, Some(price))));
 	});
 }
 
 #[test]
 fn test_buy() {
 	new_test_ext().execute_with(|| {
+		assert_eq!(KittiesCount::<Test>::get(),None);
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		let price: u128 = 1_500;
-		assert_ok!(KittiesModule::sell(Origin::signed(1), 0, Some(price)));
-		assert_ok!(KittiesModule::buy_kitty(Origin::signed(2), 0));
-		assert_eq!(Owner::<Test>::get(0), Some(2));
-		System::assert_has_event(MockEvent::KittiesModule(Event::Bought(2, 1, 0, Some(price))));
+		assert_ok!(KittiesModule::sale(Origin::signed(1), 1, Some(price)));
+		assert_ok!(KittiesModule::buy(Origin::signed(2), 1));
+		assert_eq!(Owner::<Test>::get(1), Some(2));
+		System::assert_has_event(MockEvent::KittiesModule(Event::Bought(2, 1, 1, Some(price))));
 	});
 }
 
@@ -63,7 +64,7 @@ fn test_kitties_count_overflow() {
 		let account_id: u64 = 1;
 		assert_noop!(
 			KittiesModule::create(Origin::signed(account_id)),
-			Error::<Test>::KittiesCountOverflow
+			Error::<Test>::KittyCntOverflow
 		);
 	});
 }
@@ -73,9 +74,9 @@ fn test_buyer_should_not_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		let price: u128 = 1_500;
-		assert_ok!(KittiesModule::sell(Origin::signed(1), 0, Some(price)));
+		assert_ok!(KittiesModule::sale(Origin::signed(1), 1, Some(price)));
 		assert_noop!(
-			KittiesModule::buy_kitty(Origin::signed(1), 0),
+			KittiesModule::buy(Origin::signed(1), 1),
 			Error::<Test>::BuyerIsKittyOwner
 		);
 	});
@@ -86,7 +87,7 @@ fn test_kitty_not_exist() {
 	new_test_ext().execute_with(|| {
 		let price: u128 = 1_500;
 		assert_noop!(
-			KittiesModule::sell(Origin::signed(1), 0, Some(price)),
+			KittiesModule::sale(Origin::signed(1), 0, Some(price)),
 			Error::<Test>::KittyNotExist
 		);
 	});
@@ -97,7 +98,7 @@ fn test_not_kitty_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		assert_noop!(
-			KittiesModule::transfer(Origin::signed(2), 3, 0),
+			KittiesModule::transfer(Origin::signed(2), 3, 1),
 			Error::<Test>::NotKittyOwner
 		);
 	});
@@ -107,7 +108,7 @@ fn test_not_kitty_owner() {
 fn test_kitty_not_on_sale() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
-		assert_noop!(KittiesModule::buy_kitty(Origin::signed(2), 0), Error::<Test>::KittyNotOnSale);
+		assert_noop!(KittiesModule::buy(Origin::signed(2), 1), Error::<Test>::KittyNotForSale);
 	});
 }
 
@@ -116,9 +117,9 @@ fn test_not_enough_balance() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		let price: u128 = 7_500;
-		assert_ok!(KittiesModule::sell(Origin::signed(1), 0, Some(price)));
+		assert_ok!(KittiesModule::sale(Origin::signed(1), 1, Some(price)));
 		assert_noop!(
-			KittiesModule::buy_kitty(Origin::signed(3), 0),
+			KittiesModule::buy(Origin::signed(3), 1),
 			Error::<Test>::NotEnoughBalance
 		);
 	});
