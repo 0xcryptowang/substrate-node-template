@@ -1,200 +1,298 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
 
 #[frame_support::pallet]
-// 定义pallet模块，并设置pub访问权限
 pub mod pallet {
-    // 导入模块
-	use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::Randomness};
-    use frame_system::pallet_prelude::*;
-    use codec::{Encode, Decode};
-    use sp_io::hashing::blake2_128;
-   
-    
+	use codec::{Decode, Encode, EncodeLike};
+	use frame_support::{
+		dispatch::DispatchResult,
+		pallet_prelude::*,
+		traits::{Currency, ExistenceRequirement, Randomness, ReservableCurrency},
+		transactional,
+	};
+	use frame_system::pallet_prelude::*;
+	use num_traits::bounds::Bounded;
+	use scale_info::TypeInfo;
+	use sp_io::hashing::blake2_128;
+	use sp_runtime::traits::{AtLeast32Bit, CheckedAdd, One};
 
-    	// 定义配置
-	#[pallet::config] 
-	// 定义trait Config 继承 frame_system::Config trait
-	pub trait Config: frame_system::Config {
-		// 定义关联类型Event，该类继承 From<Event<Self>> 和 IsType<<Self as frame_system::Config>::Event> 这两个trait
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type Randomness: Randomness<Self::Hash,Self::BlockNumber>;
+	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	pub struct Kitty<T: Config> {
+		pub dna: [u8; 16],
+		pub owner: AccountOf<T>,
 	}
 
-    // 定义事件枚举
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	// 定义泛型枚举，其中枚举类型需继承上面定义的Config trait
-	pub enum Event<T: Config> {
-        KittyCreated(T::AccountId, KittyIndex),
-        KittyTransfer(T::AccountId, T::AccountId, KittyIndex),
-    }
+	type AccountOf<T> = <T as frame_system::Config>::AccountId;
+	type BalanceOf<T> =
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-    // 定义错误枚举
-	#[pallet::error] 
-	pub enum Error<T> {
-        KittiesCountOverflow,
-        AlreadyOwner,
-        NotOwner,
-        SameParentIndex,
-        InvalidKittyIndex
-    }
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		type KittyIndex: Parameter + Default + AtLeast32Bit + Copy + Bounded + EncodeLike;
 
+		#[pallet::constant]
+		type StakeAmountForKitty: Get<BalanceOf<Self>>;
+	}
 
-    // 定义Kitty结构体
-    #[derive(Encode, Decode, scale_info::TypeInfo)]
-    pub struct Kitty(pub [u8;16]);
-
-    // 定义Kitty结构体索引
-    type KittyIndex = u32;
-
-    // 定义kitty数量存储结构
-    #[pallet::storage]
-    #[pallet::getter(fn kitties_count)]
-    pub type KittiesCount<T> = StorageValue<_, u32>;
-
-    // 定义kitty集合存储结构
-    #[pallet::storage]
-    #[pallet::getter(fn kitties)]
-    pub type Kitties<T> = StorageMap<_, Blake2_128Concat, KittyIndex, Option<Kitty>, ValueQuery>;
-
-    // 定义所有者存储结构
-    #[pallet::storage]
-    #[pallet::getter(fn owner)]
-    pub type Owner<T:Config> = StorageMap<_, Blake2_128Concat, KittyIndex, Option<T::AccountId>, ValueQuery>;
-
-
-    // 定义结构体
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-    // 定义调用
-	#[pallet::call] 
-	// 为Pallet结构体扩展方法
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A new Kitty was sucessfully created.
+		Created(T::AccountId, T::KittyIndex),
+		/// Kitty price was sucessfully set and on sell.
+		OnSell(T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
+		/// A Kitty was sucessfully transferred.
+		Transferred(T::AccountId, T::AccountId, T::KittyIndex),
+		/// A Kitty was sucessfully bought.
+		Bought(T::AccountId, T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
+	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn kitties_count)]
+	pub type KittiesCount<T: Config> = StorageValue<_, T::KittyIndex>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn owner)]
+	pub type Owner<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<T::AccountId>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn kitties)]
+	pub type Kitties<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<Kitty<T>>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn kitties_list_for_sale)]
+	pub type ListForSale<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<BalanceOf<T>>, ValueQuery>;
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Handles arithemtic overflow when incrementing the Kitty counter.
+		KittiesCountOverflow,
+		/// Buyer cannot be the owner.
+		BuyerIsKittyOwner,
+		/// Handles checking whether the Kitty exists.
+		KittyNotExist,
+		/// Handles checking that the Kitty is owned by the account transferring, buying or setting a price for it.
+		NotKittyOwner,
+		/// Ensures the Kitty is on sale.
+		KittyNotOnSale,
+		/// Ensures that an account has enough funds to purchase a Kitty.
+		NotEnoughBalance,
+		/// Ensures has enough balance to stake.
+		NotEnoughBalanceForStaking,
+	}
+
+	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::weight(0)]
+		pub fn create(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let kitty_id = Self::mint(&who, None)?;
+			Self::deposit_event(Event::Created(who, kitty_id));
 
-        #[pallet::weight(0)]
-        pub fn create(origin: OriginFor<T>) -> DispatchResult{
-            let who = ensure_signed(origin)?;
-            let kitty_id = match Self::kitties_count(){
-                Some(id) => {
-                    ensure!(id < KittyIndex::max_value(),Error::<T>::KittiesCountOverflow);
-                    id + 1
-                },
-                None =>{
-                    1
-                }
-            };
-    
-            let  dna = Self::random_value(&who);
-            Kitties::<T>::insert(kitty_id,Some(Kitty(dna)));
-            Owner::<T>::insert(kitty_id,Some(who.clone()));
-            KittiesCount::<T>::put(kitty_id);
+			Ok(())
+		}
 
-            Self::deposit_event(Event::KittyCreated(who,kitty_id));
+		#[pallet::weight(100)]
+		pub fn transfer(
+			origin: OriginFor<T>,
+			to: T::AccountId,
+			kitty_id: T::KittyIndex,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Self::is_kitty_owner(&kitty_id, &who)?, <Error<T>>::NotKittyOwner);
+			Self::transfer_kitty_to(&kitty_id, &to)?;
+			Self::deposit_event(Event::Transferred(who, to, kitty_id));
 
-            Ok(())
-        }
+			Ok(())
+		}
 
-        #[pallet::weight(0)]
-        pub fn transfer(origin: OriginFor<T>, new_owner:T::AccountId, kitty_id:KittyIndex) -> DispatchResult{
-            let who = ensure_signed(origin)?;
-            ensure!(Some(who.clone())==Owner::<T>::get(kitty_id),Error::<T>::NotOwner);
-            Owner::<T>::insert(kitty_id,Some(new_owner.clone()));
-            Self::deposit_event(Event::KittyTransfer(who,new_owner,kitty_id));
-            Ok(())
-        }
+		#[pallet::weight(100)]
+		pub fn breed(
+			origin: OriginFor<T>,
+			kitty_id_1: T::KittyIndex,
+			kitty_id_2: T::KittyIndex,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
 
-      
-        #[pallet::weight(0)]
-        pub fn breed(origin: OriginFor<T>, kitty_id_1:KittyIndex,kitty_id_2:KittyIndex) -> DispatchResult{
-            let who = ensure_signed(origin)?;
-            
-            ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameParentIndex);
-            
-            let kitty1= Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyIndex)?;
-            let kitty2= Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyIndex)?;
+			let new_dna = Self::breed_dna(&who, kitty_id_1, kitty_id_2)?;
+			let kitty_id = Self::mint(&who, Some(new_dna))?;
 
-            ensure!(Some(who.clone())==Owner::<T>::get(kitty_id_1), Error::<T>::NotOwner);
-            ensure!(Some(who.clone())==Owner::<T>::get(kitty_id_2), Error::<T>::NotOwner);
+			Self::deposit_event(Event::Created(who, kitty_id));
 
-            let kitty_id = match Self::kitties_count(){
-                Some(id) => {
-                    ensure!(id < KittyIndex::max_value(),Error::<T>::KittiesCountOverflow);
-                    id + 1
-                },
-                None =>{
-                    1
-                }
-            };
+			Ok(())
+		}
 
-            let dna_1 = kitty1.0;
-            let dna_2 = kitty2.0;
-            let selector = Self::random_value(&who);
-            let mut new_dna = [0u8; 16];
-            for i in 0..dna_1.len(){
-                new_dna[i] = (selector[i] & dna_1[i]) | (!selector[i] & dna_2[i]);
-            }
+		#[pallet::weight(100)]
+		pub fn sell(
+			origin: OriginFor<T>,
+			kitty_id: T::KittyIndex,
+			price: Option<BalanceOf<T>>,
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			if !<Kitties<T>>::contains_key(&kitty_id) {
+				Err(<Error<T>>::KittyNotExist)?;
+			}
+			ensure!(Self::is_kitty_owner(&kitty_id, &sender)?, <Error<T>>::NotKittyOwner);
 
-            Kitties::<T>::insert(kitty_id,Some(Kitty(new_dna)));
-            Owner::<T>::insert(kitty_id,Some(who.clone()));
-            KittiesCount::<T>::put(kitty_id);
+			// Set price before sell.
+			ListForSale::<T>::try_mutate(kitty_id, |p| -> DispatchResult {
+				*p = price;
+				Ok(().into())
+			})?;
 
-            Self::deposit_event(Event::KittyCreated(who,kitty_id));
-           
-            Ok(())
-        }
+			Self::deposit_event(Event::OnSell(sender, kitty_id, price));
 
-        #[pallet::weight(0)]
-        pub fn buy(origin: OriginFor<T>, kitty_id:KittyIndex) -> DispatchResult{
-            
-            // 检查kitty是否存在
-            let _kitty = Self::kitties(kitty_id).ok_or(Error::<T>::InvalidKittyIndex)?;
-            
-            // 检查kitty是否不是自己所有，防止自己买自己的
-            let who = ensure_signed(origin)?;
-            let owner = Owner::<T>::get(kitty_id);
-            ensure!(Some(who.clone())!= owner, Error::<T>::AlreadyOwner);
+			Ok(())
+		}
 
-            // 修改kitty拥有者
-            Owner::<T>::insert(kitty_id, Some(who.clone()));
+		#[transactional]
+		#[pallet::weight(100)]
+		pub fn buy_kitty(
+			origin: OriginFor<T>,
+			kitty_id: T::KittyIndex,
+			// bid_price: BalanceOf<T>,
+		) -> DispatchResult {
+			let buyer = ensure_signed(origin)?;
 
-            Self::deposit_event(Event::KittyTransfer(owner.unwrap(), who, kitty_id));
+			// Check the kitty exists and buyer is not the current kitty owner.
+			let kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
+			ensure!(kitty.owner != buyer, <Error<T>>::BuyerIsKittyOwner);
 
-            Ok(())
-        }
+			// Check the buyer has enough free balance.
+			let ask_price =
+				Self::kitties_list_for_sale(&kitty_id).ok_or(<Error<T>>::KittyNotOnSale)?;
+			let stake = T::StakeAmountForKitty::get();
+			let free_balance = T::Currency::free_balance(&buyer);
+			ensure!(free_balance > (ask_price + stake), <Error<T>>::NotEnoughBalance);
 
+			// Transfer the amount from buyer to seller.
+			let seller = kitty.owner.clone();
+			T::Currency::transfer(&buyer, &seller, ask_price, ExistenceRequirement::KeepAlive)?;
 
-        #[pallet::weight(0)]
-        pub fn sell(origin: OriginFor<T>, new_owner:T::AccountId, kitty_id:KittyIndex) -> DispatchResult{
-            // 检查kitty是否存在
-            let _kitty = Self::kitties(kitty_id).ok_or(Error::<T>::InvalidKittyIndex)?;
+			// Transfer the kitty from seller to buyer.
+			Self::transfer_kitty_to(&kitty_id, &buyer)?;
 
-             // 检查是否有kitty所有权
-             let who = ensure_signed(origin)?;
-             let owner = Owner::<T>::get(kitty_id);
-             ensure!(Some(who.clone())== owner, Error::<T>::NotOwner);
+			// Remove kitty from sale list.
+			ListForSale::<T>::remove(kitty_id);
 
-             // 修改kitty拥有者
-            Owner::<T>::insert(kitty_id, Some(new_owner.clone()));
+			Self::deposit_event(Event::Bought(buyer, seller, kitty_id, Some(ask_price)));
 
-            Self::deposit_event(Event::KittyTransfer(who, new_owner, kitty_id));
+			Ok(())
+		}
+	}
 
-            Ok(())
-        }
+	impl<T: Config> Pallet<T> {
+		fn is_kitty_owner(kitty_id: &T::KittyIndex, acct: &T::AccountId) -> Result<bool, Error<T>> {
+			match Self::kitties(kitty_id) {
+				Some(kitty) => Ok(kitty.owner == *acct),
+				None => Err(<Error<T>>::KittyNotExist),
+			}
+		}
 
-    }
+		fn random_value(sender: &T::AccountId) -> [u8; 16] {
+			let payload = (
+				T::Randomness::random_seed(),
+				&sender,
+				<frame_system::Pallet<T>>::extrinsic_index(),
+			);
+			payload.using_encoded(blake2_128)
+		}
 
-    impl<T: Config> Pallet<T> {
-        fn random_value(sender:&T::AccountId) -> [u8;16]{
-            let payload = (
-                T::Randomness::random_seed(),
-                &sender,
-                <frame_system::Pallet<T>>::extrinsic_index()
-            );
-            payload.using_encoded(blake2_128)
-        }
-    }
+		pub fn mint(
+			owner: &T::AccountId,
+			dna: Option<[u8; 16]>,
+		) -> Result<T::KittyIndex, Error<T>> {
+			let dna_inner: [u8; 16];
+			if let Some(v) = dna {
+				dna_inner = v;
+			} else {
+				dna_inner = Self::random_value(&owner);
+			}
+			let kitty = Kitty::<T> { dna: dna_inner, owner: owner.clone() };
+
+			let kitty_id = match Self::kitties_count() {
+				Some(id) => {
+					ensure!(id != T::KittyIndex::max_value(), Error::<T>::KittiesCountOverflow);
+					id
+				}
+				None => T::KittyIndex::min_value(),
+			};
+
+			let stake = T::StakeAmountForKitty::get();
+			T::Currency::reserve(&owner, stake)
+				.map_err(|_| Error::<T>::NotEnoughBalanceForStaking)?;
+
+			Kitties::<T>::insert(kitty_id, Some(kitty));
+			Owner::<T>::insert(kitty_id, Some(owner));
+
+			let one = T::KittyIndex::one();
+			let next_kitty_index = kitty_id
+				.checked_add(&one)
+				.ok_or(one)
+				.map_err(|_| <Error<T>>::KittiesCountOverflow)?;
+			KittiesCount::<T>::put(next_kitty_index);
+
+			Ok(kitty_id)
+		}
+
+		#[transactional]
+		pub fn transfer_kitty_to(
+			kitty_id: &T::KittyIndex,
+			to: &T::AccountId,
+		) -> Result<(), Error<T>> {
+			let mut kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
+			let pre_owner = kitty.owner;
+
+			// Update the kitty owner.
+			kitty.owner = to.clone();
+
+			// Staking from new owner and unstaking from the pre ownder
+			let stake = T::StakeAmountForKitty::get();
+			T::Currency::reserve(&to, stake).map_err(|_| Error::<T>::NotEnoughBalanceForStaking)?;
+			T::Currency::unreserve(&pre_owner, stake);
+
+			// Inert kitty.
+			Kitties::<T>::insert(kitty_id, Some(kitty));
+
+			// Insert new owner.
+			Owner::<T>::insert(kitty_id, Some(to.clone()));
+
+			Ok(())
+		}
+
+		fn breed_dna(
+			who: &T::AccountId,
+			parent1: T::KittyIndex,
+			parent2: T::KittyIndex,
+		) -> Result<[u8; 16], Error<T>> {
+			let dna1 = Self::kitties(parent1).ok_or(<Error<T>>::KittyNotExist)?.dna;
+			let dna2 = Self::kitties(parent2).ok_or(<Error<T>>::KittyNotExist)?.dna;
+
+			let selector = Self::random_value(&who);
+			let mut new_dna = [0u8; 16];
+
+			for i in 0..dna1.len() {
+				new_dna[i] = (selector[i] & dna1[i]) | (!selector[i] & dna2[i]);
+			}
+
+			Ok(new_dna)
+		}
+	}
 }

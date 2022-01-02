@@ -325,10 +325,16 @@ impl pallet_poe::Config for Runtime {
 	type AssetDepositBase = AssetDepositBase;
 }
 
+parameter_types! {
+	pub const StakeAmountForKitty: u128 = 1_000;
+}
 
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
+	type Currency = Balances;
+	type KittyIndex = u32;
+	type StakeAmountForKitty = StakeAmountForKitty;
 }
 
 
