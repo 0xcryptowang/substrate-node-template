@@ -46,6 +46,8 @@ pub use pallet_template;
 
 pub use pallet_kitties;
 
+pub use pallet_ocw;
+
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -337,6 +339,10 @@ impl pallet_kitties::Config for Runtime {
 	type StakeAmountForKitty = StakeAmountForKitty;
 }
 
+impl pallet_ocw::Config for Runtime {
+	type Event = Event;
+}
+
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -357,6 +363,7 @@ construct_runtime!(
 		TemplateModule: pallet_template,
 		PoeModule: pallet_poe,
 		KittiesModule:pallet_kitties,
+		OcwModule:pallet_ocw,
 		Nicks: pallet_nicks
 	}
 );

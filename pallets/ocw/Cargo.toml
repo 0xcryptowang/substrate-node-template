@@ -19,41 +19,17 @@ publish = false
 # 代码仓库
 repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
 
-[package.metadata.substrate]
-categories = [
- "pallet",
- "offchain worker",
-]
-
 
 # 指定生成文档的适用平台
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
-[dependencies.parking_lot]
-version = '0.11'
-
-[dependencies.serde]
-default-features = false
-features = ['derive'] 
-version = '1.0.130'
-
-[dependencies.serde_json]
-default-features = false
-features = ['alloc'] 
-version = '1.0.67'
-
-[dependencies.log]
-default-features = false
-version = "0.4.14"
-
-
 # 编码解码相关类库
-[dependencies.parity-scale-codec]
+[dependencies.codec]
 default-features = false
 features = ['derive']
-version = '2.0.0' 
-
+package = 'parity-scale-codec'
+version = '2.0.0'
 
 # Runtime基准测试框架
 [dependencies.frame-benchmarking]
@@ -77,43 +53,55 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
+# Runtime有关SCALE 可编码类型结构信息类库
+[dependencies.scale-info]
+default-features = false
+features = ['derive']
+version = '1.0'
 
 # Runtime 依赖的std类库
 [dependencies.sp-std]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'devhub/latest'  
-version = '4.0.0-dev'      
+tag = 'devhub/latest' 
+version = '4.0.0-dev'   
 
-# Runtime 依赖的浮点运算类库
-[dependencies.sp-arithmetic]
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'devhub/latest'  
-version = '4.0.0-dev' 
-
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'devhub/latest'
-version = '4.0.0-dev'
-
-[dependencies.sp-core]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'devhub/latest'
-version = '4.0.0-dev'
-
+# IO
 [dependencies.sp-io]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
-# Runtime有关SCALE 可编码类型结构信息类库
-[dependencies.scale-info]
+# 账户
+[dependencies.pallet-balances]
 default-features = false
-features = ['derive']
-version = '1.0'
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'devhub/latest'
+version = '4.0.0-dev'
+
+[dependencies.num-traits]
+default-features = false
+version = "0.2.8"
+
+# 随机工具
+[dependencies.pallet-randomness-collective-flip]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'devhub/latest'
+version = '4.0.0-dev'
+
+# Runtime 依赖的runtime类库
+[dependencies.sp-runtime]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'devhub/latest'
+version = '4.0.0-dev'
+
+# 日志打印
+[dependencies.log]
+default-features = false
+version = '0.4.14'
 
 # 测试环境依赖的核心组件类库
 [dev-dependencies.sp-core]
@@ -122,12 +110,6 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
-# 测试环境依赖的IO操作类库
-[dev-dependencies.sp-io]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'devhub/latest'
-version = '4.0.0-dev'
 
 # 测试环境依赖的runtime类库
 [dev-dependencies.sp-runtime]
@@ -136,20 +118,17 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'devhub/latest'
 version = '4.0.0-dev'
 
-
 # features 做条件编译(默认 std 模式)
 [features]
 default = ['std']
 runtime-benchmarks = ['frame-benchmarking']
 std = [
-    'parity-scale-codec/std',
+    'codec/std',
+    'scale-info/std',
     'frame-support/std',
     'frame-system/std',
     'frame-benchmarking/std',
+    "pallet-balances/std",
     'sp-std/std',
-    'sp-io/std',
-    'sp-runtime/std',
-    'sp-arithmetic/std',
-    'log/std'
 ]
 try-runtime = ['frame-support/try-runtime']
