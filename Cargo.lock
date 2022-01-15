@@ -3823,6 +3823,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-ocw"
+version = "0.0.1-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "parking_lot",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 4.0.0-dev (git+https://github.com/paritytech/substrate.git?tag=devhub/latest)",
+]
+
+[[package]]
 name = "pallet-poe"
 version = "0.0.1-dev"
 dependencies = [
